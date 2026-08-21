@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Node dependencies & build artifacts
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+dist-ssr/
+
+# Python virtual environment & cache
+.venv/
+backend/.venv/
+env/
+venv/
+__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment secrets
+.env
+.env.local
+frontend/.env.local
+*.local
+
+# IDE & OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.sln
+*.sw?

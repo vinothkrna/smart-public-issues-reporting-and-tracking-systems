@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Public Issue Reporting & Tracking System | Smart City Portal{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center gy-4">
+            <div class="col-lg-7">
+                <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-white shadow-sm border mb-3">
+                    <span class="badge bg-success rounded-pill px-2 py-1" style="font-size: 0.7rem;">AI-POWERED</span>
+                    <span class="small fw-semibold text-secondary">Next-Gen Municipal Grievance Redressal</span>
+                </div>
+                <h1 class="display-4 fw-extrabold text-dark tracking-tight mb-3">
+                    Report Public Issues. <br>
+                    <span class="text-primary">Track Instant Resolution.</span>
+                </h1>
+                <p class="lead text-muted mb-4" style="max-width: 580px;">
+                    Empowering citizens to report potholes, garbage dumps, water leakages, and broken streetlights. Powered by AI image classification and real-time GIS tracking.
+                </p>
+                
+                <div class="d-flex flex-wrap gap-3 mb-4">
+                    <a href="{{ url_for('issue.report_issue') }}" class="btn btn-primary-custom btn-lg px-4 d-inline-flex align-items-center gap-2">
+                        <i class="bi bi-camera-fill"></i> Report Civic Issue
+                    </a>
+                    <a href="{{ url_for('issue.list_issues') }}" class="btn btn-outline-dark btn-lg px-4 d-inline-flex align-items-center gap-2">
+                        <i class="bi bi-map-fill"></i> Browse Map & Issues
+                    </a>
+                </div>
+
+                <!-- Quick Track Search Bar -->
+                <div class="glass-card p-2 p-md-3 shadow-sm rounded-4" style="max-width: 520px;">
+                    <form action="{{ url_for('issue.list_issues') }}" method="GET" class="d-flex gap-2">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" name="search" class="form-control border-0 shadow-none ps-0" placeholder="Search by Complaint ID, Area, or Keyword..." required>
+                        </div>
+                        <button type="submit" class="btn btn-dark px-3 rounded-3">Track</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <!-- AI Feature Showcase Card -->
+                <div class="glass-card p-4 rounded-4 position-relative overflow-hidden">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="ai-badge-glow"><i class="bi bi-cpu-fill"></i> AI Vision Module</span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">Live Active</span>
+                    </div>
+                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="small fw-bold text-dark">Automated Feature Recognition</div>
+                            <span class="badge bg-primary">96% Accuracy</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: 96%"></div>
+                        </div>
+                    </div>
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="p-2 bg-white rounded-3 border">
+                                <div class="text-muted small">Auto-Classification</div>
+                                <div class="fw-bold text-dark fs-6">5 Categories</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 bg-white rounded-3 border">
+                                <div class="text-muted small">Duplicate Detection</div>
+                                <div class="fw-bold text-dark fs-6">&lt; 150m Radius</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Live Stats Section -->
+<section class="py-4">
+    <div class="container">
+        <div class="row g-3">
+            <div class="col-6 col-lg-3">
+                <div class="glass-card p-3 p-md-4 text-center">
+                    <div class="text-primary mb-1"><i class="bi bi-file-earmark-text-fill fs-2"></i></div>
+                    <div class="stat-digit text-dark">{{ total_issues }}</div>
+                    <div class="text-muted small fw-semibold">Total Complaints</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="glass-card p-3 p-md-4 text-center">
+                    <div class="text-success mb-1"><i class="bi bi-check-circle-fill fs-2"></i></div>
+                    <div class="stat-digit text-success">{{ resolved_issues }}</div>
+                    <div class="text-muted small fw-semibold">Issues Resolved</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="glass-card p-3 p-md-4 text-center">
+                    <div class="text-warning mb-1"><i class="bi bi-hourglass-split fs-2"></i></div>
+                    <div class="stat-digit text-warning">{{ in_progress }}</div>
+                    <div class="text-muted small fw-semibold">Action In Progress</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="glass-card p-3 p-md-4 text-center">
+                    <div class="text-info mb-1"><i class="bi bi-speedometer2 fs-2"></i></div>
+                    <div class="stat-digit text-info">{{ resolution_rate }}%</div>
+                    <div class="text-muted small fw-semibold">Redressal Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Live GIS Map Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+            <div>
+                <h3 class="fw-bold text-dark mb-1">Live City Issues Map</h3>
+                <p class="text-muted small mb-0">Real-time geospatial visualization of reported public grievances across the city.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="badge" style="background-color: #ef4444;">● Pothole</span>
+                <span class="badge" style="background-color: #f59e0b;">● Garbage</span>
+                <span class="badge" style="background-color: #0ea5e9;">● Water</span>
+                <span class="badge" style="background-color: #8b5cf6;">● Streetlight</span>
+                <span class="badge" style="background-color: #10b981;">● Drainage</span>
+            </div>
+        </div>
+
+        <div class="glass-card p-2 rounded-4 shadow-sm">
+            <div id="issuesMap"></div>
+        </div>
+    </div>
+</section>
+
+<!-- Issue Categories Breakdown Grid -->
+<section class="py-5 bg-white border-top border-bottom">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h3 class="fw-bold text-dark">Issue Categories Supported</h3>
+            <p class="text-muted" style="max-width: 600px; margin: 0 auto;">Our intelligent AI model accurately recognizes and auto-dispatches complaints across core municipal sectors.</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4 col-sm-6">
+                <div class="glass-card p-4 h-100 text-center">
+                    <div class="rounded-circle bg-danger-subtle text-danger d-inline-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px; font-size: 1.5rem;">
+                        <i class="bi bi-cone-striped"></i>
+                    </div>
+                    <h5 class="fw-bold">Potholes & Road Hazards</h5>
+                    <p class="text-muted small">Broken asphalt, deep craters, damaged speed bumps, and cave-ins assigned directly to Roads & PWD.</p>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="glass-card p-4 h-100 text-center">
+                    <div class="rounded-circle bg-warning-subtle text-warning d-inline-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px; font-size: 1.5rem;">
+                        <i class="bi bi-trash3-fill"></i>
+                    </div>
+                    <h5 class="fw-bold">Garbage & Waste Dumps</h5>
+                    <p class="text-muted small">Overflowing dumpsters, illegal roadside waste dumps, and uncollected solid waste handled by Sanitation squads.</p>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="glass-card p-4 h-100 text-center">
+                    <div class="rounded-circle bg-info-subtle text-info d-inline-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px; font-size: 1.5rem;">
+                        <i class="bi bi-droplet-fill"></i>
+                    </div>
+                    <h5 class="fw-bold">Water Leakages & Bursts</h5>
+                    <p class="text-muted small">Underground pipe ruptures, contaminated water supplies, and low pressure redressed by Water Board.</p>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="glass-card p-4 h-100 text-center">
+                    <div class="rounded-circle bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px; font-size: 1.5rem;">
+                        <i class="bi bi-lightbulb-fill"></i>
+                    </div>
+                    <h5 class="fw-bold">Streetlight Failures</h5>
+                    <p class="text-muted small">Dark sectors, flickering light poles, and exposed wiring dispatched to Electricity Board teams.</p>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="glass-card p-4 h-100 text-center">
+                    <div class="rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px; font-size: 1.5rem;">
+                        <i class="bi bi-water"></i>
+                    </div>
+                    <h5 class="fw-bold">Drainage & Sewer Blockages</h5>
+                    <p class="text-muted small">Clogged stormwater gutters, open manholes, and sewage overflows routed to Drainage department.</p>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="glass-card p-4 h-100 text-center">
+                    <div class="rounded-circle bg-secondary-subtle text-secondary d-inline-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px; font-size: 1.5rem;">
+                        <i class="bi bi-buildings-fill"></i>
+                    </div>
+                    <h5 class="fw-bold">Public Infrastructure</h5>
+                    <p class="text-muted small">Damaged bus shelters, broken park benches, and public property repairs tracked transparently.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it works 4 Steps -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge bg-primary-subtle text-primary px-3 py-1 rounded-pill">TRANSPARENT PROCESS</span>
+            <h3 class="fw-bold text-dark mt-2">How The System Works</h3>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-3 col-sm-6 text-center">
+                <div class="p-3">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center fw-bold fs-4 mb-3" style="width: 54px; height: 54px;">1</div>
+                    <h6 class="fw-bold">Citizen Reports</h6>
+                    <p class="text-muted small">Upload an image and pin the location in seconds from any device.</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center">
+                <div class="p-3">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center fw-bold fs-4 mb-3" style="width: 54px; height: 54px;">2</div>
+                    <h6 class="fw-bold">AI Categorization</h6>
+                    <p class="text-muted small">AI vision identifies the problem and predicts priority & duplicates.</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center">
+                <div class="p-3">
+                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center fw-bold fs-4 mb-3" style="width: 54px; height: 54px;">3</div>
+                    <h6 class="fw-bold">Department Action</h6>
+                    <p class="text-muted small">Concerned municipal team is dispatched with automated task assignment.</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 text-center">
+                <div class="p-3">
+                    <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center fw-bold fs-4 mb-3" style="width: 54px; height: 54px;">4</div>
+                    <h6 class="fw-bold">Resolved & Verified</h6>
+                    <p class="text-muted small">Work verified with proof photos and status update sent to citizen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const issuesData = {{ map_issues | tojson | safe }};
+        initPublicMap(issuesData);
+    });
+</script>
+{% endblock %}

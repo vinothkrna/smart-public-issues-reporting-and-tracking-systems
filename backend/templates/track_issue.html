@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Track Issue #{{ issue.issue_id }} | Smart Public Issues{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Breadcrumbs -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('issue.home') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('issue.list_issues') }}">Issues</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Track #{{ issue.issue_id }}</li>
+                </ol>
+            </nav>
+
+            <!-- Main Complaint Header Card -->
+            <div class="glass-card p-4 rounded-4 mb-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 border-bottom pb-3 mb-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="badge badge-pill-custom badge-status-{{ issue.status.lower().replace(' ', '-') }} fs-6">{{ issue.status }}</span>
+                            <span class="badge badge-pill-custom badge-priority-{{ issue.priority.lower() }}">{{ issue.priority }} Priority</span>
+                            <span class="badge bg-light text-secondary border">#{{ issue.issue_id }}</span>
+                        </div>
+                        <h3 class="fw-bold text-dark mb-1">{{ issue.title }}</h3>
+                        <div class="text-muted small">
+                            <i class="bi bi-geo-alt-fill text-danger me-1"></i> {{ issue.location }} &bull;
+                            <i class="bi bi-calendar3 ms-2 me-1"></i> Reported on {{ issue.created_at.strftime('%d %b %Y, %I:%M %p') }}
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill btn-upvote" data-issue-id="{{ issue.issue_id }}">
+                            <i class="bi bi-hand-thumbs-up-fill me-1"></i> Upvote (<span class="upvote-count">{{ issue.upvotes or 1 }}</span>)
+                        </button>
+                        {% if current_user.is_authenticated and current_user.is_administrator %}
+                        <a href="{{ url_for('admin.admin_dashboard') }}?search={{ issue.issue_id }}" class="btn btn-danger btn-sm rounded-pill">
+                            <i class="bi bi-gear-fill me-1"></i> Admin Triage
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Left: Lifecycle Progress Timeline -->
+                    <div class="col-lg-6">
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-diagram-3-fill text-primary me-2"></i> Resolution Lifecycle</h5>
+                        
+                        <div class="timeline-track">
+                            {% for step in issue.get_timeline() %}
+                            <div class="timeline-step {{ 'completed' if step.done else '' }}">
+                                <div class="timeline-marker">
+                                    {% if step.done %}
+                                    <i class="bi bi-check-lg"></i>
+                                    {% else %}
+                                    <i class="bi bi-circle"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="ps-2">
+                                    <h6 class="fw-bold text-dark mb-0">{{ step.label }}</h6>
+                                    <div class="text-muted small">{{ step.date if step.date else ('Pending Stage' if not step.done else 'Completed') }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Department & Assignment Info -->
+                        <div class="p-3 bg-light rounded-3 mt-4 border">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small text-muted">Assigned Department:</span>
+                                <span class="badge bg-primary">{{ issue.department or 'Assigned to Municipal Cell' }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small text-muted">Field Officer:</span>
+                                <span class="fw-semibold small text-dark">{{ issue.assigned_to or 'Squad Assigned' }}</span>
+                            </div>
+                            {% if issue.ai_confidence %}
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small text-muted">AI Model Verification:</span>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">{{ (issue.ai_confidence * 100) | int }}% Confidence</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Right: Photos & Resolution Notes -->
+                    <div class="col-lg-6">
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-images text-primary me-2"></i> Photographic Evidence</h5>
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-{{ '6' if issue.resolution_image else '12' }}">
+                                <div class="p-2 border rounded-3 bg-white text-center">
+                                    <span class="badge bg-secondary mb-2">Initial Citizen Report</span>
+                                    {% if issue.image_path %}
+                                    <img src="{{ url_for('static', filename=issue.image_path) }}" alt="Issue initial proof" class="img-fluid rounded preview-img-box" style="height: 170px;">
+                                    {% else %}
+                                    <div class="d-flex align-items-center justify-content-center bg-light rounded preview-img-box" style="height: 170px;">
+                                        <span class="text-muted small"><i class="bi bi-camera-slash me-1"></i> No image attached</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if issue.resolution_image %}
+                            <div class="col-6">
+                                <div class="p-2 border rounded-3 bg-white text-center border-success">
+                                    <span class="badge bg-success mb-2">Work Completed Proof</span>
+                                    <img src="{{ url_for('static', filename=issue.resolution_image) }}" alt="Resolution work proof" class="img-fluid rounded preview-img-box" style="height: 170px;">
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description & Resolution Notes -->
+                        <div class="mb-3">
+                            <h6 class="fw-bold text-dark small mb-1">Issue Description:</h6>
+                            <p class="p-3 bg-white border rounded-3 small text-muted mb-0">{{ issue.description }}</p>
+                        </div>
+
+                        {% if issue.resolution_notes %}
+                        <div>
+                            <h6 class="fw-bold text-success small mb-1"><i class="bi bi-check2-circle me-1"></i> Official Resolution Remarks:</h6>
+                            <div class="p-3 bg-success-subtle text-success-emphasis border border-success-subtle rounded-3 small">
+                                {{ issue.resolution_notes }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Back to dashboard / report more -->
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('issue.list_issues') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i> View All Issues
+                </a>
+                <a href="{{ url_for('issue.report_issue') }}" class="btn btn-primary-custom btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i> Report Another Issue
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

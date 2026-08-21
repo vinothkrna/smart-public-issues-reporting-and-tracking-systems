@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}My Citizen Dashboard | Smart Public Issues{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header banner -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h2 class="fw-bold text-dark mb-1">Citizen Dashboard</h2>
+            <p class="text-muted small mb-0">Welcome, <strong>{{ current_user.name }}</strong> ({{ current_user.email }})</p>
+        </div>
+        <a href="{{ url_for('issue.report_issue') }}" class="btn btn-primary-custom d-inline-flex align-items-center gap-2">
+            <i class="bi bi-plus-circle-fill"></i> Report New Issue
+        </a>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-3 text-center">
+                <div class="stat-digit text-primary">{{ my_total }}</div>
+                <div class="small text-muted fw-semibold">My Total Reports</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-3 text-center">
+                <div class="stat-digit text-success">{{ my_resolved }}</div>
+                <div class="small text-muted fw-semibold">Resolved</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-3 text-center">
+                <div class="stat-digit text-warning">{{ my_pending }}</div>
+                <div class="small text-muted fw-semibold">In Progress / Pending</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-3 text-center">
+                <div class="stat-digit text-info">{{ unread_count }}</div>
+                <div class="small text-muted fw-semibold">Unread Notifications</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Main List of Reported Complaints -->
+        <div class="col-lg-8">
+            <div class="glass-card p-4 rounded-4">
+                <h5 class="fw-bold text-dark mb-3 d-flex align-items-center justify-content-between">
+                    <span>My Registered Complaints</span>
+                    <span class="badge bg-light text-secondary border">{{ user_issues | length }} Reports</span>
+                </h5>
+
+                {% if user_issues %}
+                    <div class="list-group list-group-flush gap-3">
+                        {% for issue in user_issues %}
+                        <div class="list-group-item border rounded-3 p-3 glass-card shadow-none">
+                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-start gap-2 mb-2">
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="badge badge-pill-custom badge-status-{{ issue.status.lower().replace(' ', '-') }}">{{ issue.status }}</span>
+                                        <span class="badge badge-pill-custom badge-priority-{{ issue.priority.lower() }}">{{ issue.priority }} Priority</span>
+                                        <span class="text-muted small">#{{ issue.issue_id }}</span>
+                                    </div>
+                                    <h6 class="fw-bold text-dark mb-1">{{ issue.title }}</h6>
+                                </div>
+                                <a href="{{ url_for('issue.track_issue', issue_id=issue.issue_id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-clock-history me-1"></i> Track Timeline &rarr;
+                                </a>
+                            </div>
+
+                            <p class="text-muted small mb-2 text-truncate" style="max-width: 500px;">{{ issue.description }}</p>
+
+                            <div class="d-flex flex-wrap align-items-center justify-content-between pt-2 border-top gap-2 text-muted" style="font-size: 0.8rem;">
+                                <div>
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i> {{ issue.location }}
+                                </div>
+                                <div>
+                                    <i class="bi bi-calendar3 me-1"></i> {{ issue.created_at.strftime('%d %b %Y, %I:%M %p') }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <div class="fs-1 mb-2"><i class="bi bi-clipboard-check text-secondary"></i></div>
+                        <h6>No complaints submitted yet</h6>
+                        <p class="small">If you spot any issue in your locality, report it using the button above.</p>
+                        <a href="{{ url_for('issue.report_issue') }}" class="btn btn-primary-custom btn-sm">Report Your First Issue</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Side: Recent Notifications / Timeline Feed -->
+        <div class="col-lg-4">
+            <div class="glass-card p-4 rounded-4">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-bell-fill text-primary me-2"></i> Recent Updates</h5>
+
+                {% if notifications %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for notif in notifications %}
+                        <div class="p-2 rounded-3 border {{ 'bg-white' if not notif.is_read else 'bg-light' }}" style="font-size: 0.85rem;">
+                            <div class="text-dark fw-medium mb-1">{{ notif.message }}</div>
+                            <div class="d-flex justify-content-between align-items-center text-muted" style="font-size: 0.72rem;">
+                                <span>{{ notif.get_time_ago() }}</span>
+                                {% if notif.issue_id %}
+                                <a href="{{ url_for('issue.track_issue', issue_id=notif.issue_id) }}" class="text-primary text-decoration-none">View Issue #{{ notif.issue_id }}</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted small">
+                        <i class="bi bi-bell-slash fs-3 d-block mb-1"></i>
+                        No recent updates
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

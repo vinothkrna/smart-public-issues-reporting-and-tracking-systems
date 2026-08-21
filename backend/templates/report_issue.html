@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Report a Civic Issue | Smart Public Issues{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header Breadcrumb & Title -->
+            <div class="mb-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="{{ url_for('issue.home') }}">Home</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Report Issue</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-extrabold text-dark mb-1">Report a Public Issue</h2>
+                <p class="text-muted small">Upload an image and location. Our AI Vision model will automatically analyze and route your complaint to the concerned municipal department.</p>
+            </div>
+
+            <form action="{{ url_for('issue.report_issue') }}" method="POST" enctype="multipart/form-data" id="reportForm">
+                <div class="row g-4">
+                    <!-- Left Column: Photo Upload & AI Scanner HUD -->
+                    <div class="col-lg-6">
+                        <div class="glass-card p-4 rounded-4 h-100">
+                            <h5 class="fw-bold text-dark mb-3 d-flex align-items-center justify-content-between">
+                                <span><i class="bi bi-camera-fill text-primary me-2"></i> 1. Upload Photo & AI Scan</span>
+                                <span class="badge bg-primary-subtle text-primary rounded-pill">AI Vision Ready</span>
+                            </h5>
+
+                            <!-- Drag & Drop Zone -->
+                            <div class="ai-scan-container mb-3" id="aiScanDropzone">
+                                <div class="scan-beam" id="scanBeam"></div>
+                                <input type="file" name="image" id="imageFileInput" accept="image/*" class="d-none">
+                                
+                                <div class="upload-prompt py-4">
+                                    <div class="text-primary fs-1 mb-2"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+                                    <h6 class="fw-bold mb-1">Click to Upload or Drag & Drop Photo</h6>
+                                    <p class="text-muted small mb-0">Supports JPG, PNG, WEBP (Max 16MB)</p>
+                                </div>
+
+                                <div id="imagePreviewContainer" class="d-none mt-2">
+                                    <img id="previewImage" src="#" alt="Uploaded issue preview" class="preview-img-box mb-2">
+                                    <div class="small text-primary fw-semibold"><i class="bi bi-arrow-repeat me-1"></i> Click to change image</div>
+                                </div>
+                            </div>
+
+                            <!-- Live AI Classification Results Card -->
+                            <div id="aiResultsBox" class="p-3 bg-white rounded-3 border d-none shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="ai-badge-glow" style="font-size: 0.75rem; padding: 4px 10px;">
+                                            <i class="bi bi-robot"></i> AI Engine
+                                        </span>
+                                        <span id="aiStatusText" class="small fw-semibold text-dark">Analyzing issue...</span>
+                                    </div>
+                                    <span id="aiPriorityBadge" class="badge badge-priority-medium">Medium Priority</span>
+                                </div>
+
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between small text-muted mb-1">
+                                        <span>Detection Confidence</span>
+                                        <span id="aiConfidenceText" class="fw-bold text-dark">85% Confidence</span>
+                                    </div>
+                                    <div class="progress" style="height: 6px;">
+                                        <div id="aiConfidenceBar" class="progress-bar bg-success" style="width: 85%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center small pt-2 border-top">
+                                    <span class="text-muted">Target Department:</span>
+                                    <span id="aiDeptText" class="fw-bold text-primary">Roads & PWD</span>
+                                </div>
+
+                                <div id="aiTagsContainer" class="mt-2 d-flex flex-wrap"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Complaint Information & GIS Location -->
+                    <div class="col-lg-6">
+                        <div class="glass-card p-4 rounded-4 mb-4">
+                            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-pencil-square text-primary me-2"></i> 2. Issue Details</h5>
+                            
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Issue Title <span class="text-danger">*</span></label>
+                                <input type="text" name="title" id="titleInput" class="form-control" placeholder="e.g. Dangerous pothole near bus station" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Description & Details <span class="text-danger">*</span></label>
+                                <textarea name="description" id="descInput" rows="3" class="form-control" placeholder="Provide details such as size, risk factor, duration..." required></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Category Override (Optional)</label>
+                                <select name="category" id="categorySelect" class="form-select">
+                                    <option value="Auto-Detect" selected>✨ Auto-Detect with AI (Recommended)</option>
+                                    <option value="Pothole">Pothole & Road Hazard</option>
+                                    <option value="Garbage Dump">Garbage & Solid Waste</option>
+                                    <option value="Water Leakage">Water Pipeline Leakage</option>
+                                    <option value="Streetlight Failure">Streetlight Failure / Dark Sector</option>
+                                    <option value="Drainage Blockage">Drainage & Sewage Blockage</option>
+                                    <option value="Other">Other Public Infrastructure</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Location Picker & Map -->
+                        <div class="glass-card p-4 rounded-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold text-dark mb-0"><i class="bi bi-geo-alt-fill text-danger me-2"></i> 3. Issue Location</h5>
+                                <button type="button" id="btnUseGPS" class="btn btn-sm btn-outline-primary rounded-pill">
+                                    <i class="bi bi-crosshair"></i> Use My GPS Location
+                                </button>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Street Address / Landmark <span class="text-danger">*</span></label>
+                                <input type="text" name="location" id="locationInput" class="form-control" placeholder="e.g. Cross Street 4, Near Gandhi Market, Erode" required>
+                            </div>
+
+                            <!-- Hidden coordinate inputs -->
+                            <input type="hidden" name="latitude" id="latitudeInput">
+                            <input type="hidden" name="longitude" id="longitudeInput">
+
+                            <div class="mb-2">
+                                <label class="form-label small text-muted">Click or drag pin on map to set exact spot:</label>
+                                <div id="pickerMap" style="height: 220px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{{ url_for('issue.home') }}" class="btn btn-light px-4">Cancel</a>
+                    <button type="submit" class="btn btn-primary-custom btn-lg px-5">
+                        <i class="bi bi-send-fill me-2"></i> Submit Complaint
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/ai_scanner.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initLocationPicker();
+    });
+</script>
+{% endblock %}

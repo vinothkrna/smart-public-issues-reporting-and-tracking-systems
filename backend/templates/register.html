@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Create Citizen Account | Smart Public Issues{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="glass-card p-4 p-md-5 rounded-4 shadow-lg">
+                <div class="text-center mb-4">
+                    <div class="brand-icon-box mx-auto mb-2" style="width: 48px; height: 48px; font-size: 1.3rem;">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </div>
+                    <h3 class="fw-extrabold text-dark mb-1">Citizen Registration</h3>
+                    <p class="text-muted small">Join our smart city grievance redressal network.</p>
+                </div>
+
+                <form action="{{ url_for('auth.register') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Full Name <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-person text-muted"></i></span>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Vinoth Krishna" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Email Address <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-envelope text-muted"></i></span>
+                            <input type="email" name="email" class="form-control" placeholder="name@example.com" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Mobile Phone Number</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-telephone text-muted"></i></span>
+                            <input type="tel" name="phone" class="form-control" placeholder="+91 9876543210">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">Password <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-key text-muted"></i></span>
+                            <input type="password" name="password" class="form-control" placeholder="At least 6 characters" minlength="6" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary-custom w-100 py-2 mb-3">
+                        Create My Account &rarr;
+                    </button>
+
+                    <div class="text-center text-muted small">
+                        Already have an account? 
+                        <a href="{{ url_for('auth.login') }}" class="text-primary fw-bold text-decoration-none">Sign In</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
