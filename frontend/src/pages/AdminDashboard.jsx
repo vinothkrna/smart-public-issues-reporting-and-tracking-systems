@@ -179,7 +179,14 @@ export default function AdminDashboard({
   departmentProp
 }) {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, isCitizen } = useAuth();
+
+  // Defense-in-depth safety guard: Allow ONLY admins to admin dashboard
+  useEffect(() => {
+    if (currentUser && isCitizen) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, isCitizen, navigate]);
 
   // Active Department Selection (defaults to departmentProp or user's assigned department or Water Supply / All)
   const defaultDept = departmentProp || currentUser?.department || 'Water Supply Department';

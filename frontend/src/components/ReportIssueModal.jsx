@@ -277,7 +277,7 @@ export default function ReportIssueModal({ isOpen, onClose, onIssueCreated, curr
         longitude,
         user_id: currentUser ? currentUser.id : 2,
         priority: aiResult?.predicted_priority || 'Medium',
-        department: aiResult?.suggested_department || 'Roads & PWD',
+        department: aiResult?.suggested_department || 'Roads & Highways Department',
         ai_confidence: (aiResult?.confidence_percentage || 90) / 100
       };
 
@@ -319,27 +319,19 @@ export default function ReportIssueModal({ isOpen, onClose, onIssueCreated, curr
         });
       }
 
-      const newIssue = res.ok ? (await res.json()).issue : {
-        ...payload,
-        issue_id: Math.floor(Math.random() * 900) + 100,
-        reporter_name: currentUser?.name || 'Citizen',
-        status: 'Submitted',
-        created_at: new Date().toISOString(),
-        timeline: [
-          { stage: 'Submitted',    label: 'Complaint Submitted',        done: true,  date: 'Just now' },
-          { stage: 'Under Review', label: 'AI & Admin Verification',    done: false, date: null },
-          { stage: 'Assigned',     label: `Assigned to ${payload.department}`, done: false, date: null },
-          { stage: 'In Progress',  label: 'Field Action in Progress',   done: false, date: null },
-          { stage: 'Resolved',     label: 'Issue Resolved',             done: false, date: null }
-        ]
-      };
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.error || 'Failed to submit issue');
+      }
+
+      const newIssue = resData.issue || resData;
 
       confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
       onIssueCreated(newIssue);
       onClose();
-    } catch {
-      alert('Complaint submitted into local storage.');
-      onClose();
+    } catch (err) {
+      console.error('Error submitting grievance:', err);
+      alert(`Submission failed: ${err.message || 'Please check your connection and try again.'}`);
     } finally {
       setIsSubmitting(false);
     }

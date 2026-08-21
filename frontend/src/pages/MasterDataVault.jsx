@@ -34,7 +34,14 @@ const API_BASE = 'http://127.0.0.1:5000';
 
 export default function MasterDataVault({ issues = [] }) {
   const navigate = useNavigate();
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isCitizen } = useAuth();
+
+  // Defense-in-depth safety guard: Allow ONLY admins to data vault
+  useEffect(() => {
+    if (currentUser && isCitizen) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, isCitizen, navigate]);
 
   const [activeTab, setActiveTab] = useState('grievances'); // 'grievances' | 'users' | 'audits' | 'communications' | 'backups'
   const [loading, setLoading] = useState(true);

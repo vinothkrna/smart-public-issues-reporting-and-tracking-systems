@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -27,10 +27,21 @@ export default function CitizenDashboard({
   onUpvote
 }) {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
+
+  // Defense-in-depth safety guard: Allow ONLY citizen to citizen dashboard
+  useEffect(() => {
+    if (currentUser && isAdmin) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [currentUser, isAdmin, navigate]);
 
   // Citizen's issues
-  const myIssues = issues.filter(i => i.user_id === currentUser?.id || i.reporter_name === currentUser?.name);
+  const myIssues = issues.filter(i => 
+    (currentUser?.id && i.user_id === currentUser.id) || 
+    (currentUser?.name && i.reporter_name === currentUser.name) ||
+    (currentUser?.email && i.reporter_email === currentUser.email)
+  );
   const totalMyCount = myIssues.length;
   const activeCount = myIssues.filter(i => !['Resolved', 'Rejected'].includes(i.status)).length;
   const resolvedCount = myIssues.filter(i => i.status === 'Resolved').length;

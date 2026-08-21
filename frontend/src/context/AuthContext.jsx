@@ -104,11 +104,16 @@ export function AuthProvider({ children }) {
     return () => clearInterval(interval);
   }, [token, logout]);
 
-  // Login: Citizen & Admin
-  const login = async (email, password, department = '') => {
+  // Login: Citizen & Admin with strict role verification
+  const login = async (email, password, department = '', expectedRole = 'citizen') => {
     setIsLoading(true);
     try {
-      const body = { email: email.trim(), password };
+      const body = {
+        email: email.trim(),
+        password,
+        role: expectedRole,
+        expected_role: expectedRole
+      };
       if (department) body.department = department.trim();
 
       const { res, data } = await safeAuthFetch(`${API_BASE}/api/auth/login`, {
@@ -124,9 +129,23 @@ export function AuthProvider({ children }) {
         throw error;
       }
 
-      setCurrentUser(data.user);
+      // Ensure that the returned user role matches expectations
+      const user = data.user;
+      const isAdminUser = ['admin', 'superadmin', 'officer'].includes(user.role);
+      if (expectedRole === 'citizen' && isAdminUser) {
+        const err = new Error('This account belongs to an Administrator. Please use the Admin Login tab.');
+        err.code = 'ROLE_MISMATCH_ADMIN';
+        throw err;
+      }
+      if (expectedRole === 'admin' && !isAdminUser) {
+        const err = new Error('Access Denied: This account is a Citizen account and lacks admin access.');
+        err.code = 'ROLE_MISMATCH_CITIZEN';
+        throw err;
+      }
+
+      setCurrentUser(user);
       setToken(data.token);
-      return data.user;
+      return user;
     } finally {
       setIsLoading(false);
     }

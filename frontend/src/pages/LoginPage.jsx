@@ -232,6 +232,7 @@ export default function LoginPage() {
     setError(null);
   }, [role]);
 
+  const [roleMismatchData, setRoleMismatchData] = useState(null);
   const [pendingVerifData, setPendingVerifData] = useState(null);
 
   const selectedDept = DEPARTMENTS.find(d => d.name === department);
@@ -244,27 +245,49 @@ export default function LoginPage() {
       return;
     }
     if (role === 'admin' && !department) {
-      setError('Please select your department before signing in.');
+      setError('Please select your municipal department before signing in as Administrator.');
       return;
     }
 
     setError(null);
     setPendingVerifData(null);
+    setRoleMismatchData(null);
     setIsSubmitting(true);
 
     try {
-      const user = await login(email.trim(), password, role === 'admin' ? department : '');
+      const user = await login(
+        email.trim(),
+        password,
+        role === 'admin' ? department : '',
+        role
+      );
+
+      const isAdminUser = ['admin', 'superadmin', 'officer'].includes(user.role);
       const from = location.state?.from?.pathname;
-      if (from) {
-        navigate(from, { replace: true });
-      } else if (user.role === 'admin' || user.role === 'superadmin' || user.role === 'officer') {
-        navigate('/admin/dashboard', { replace: true });
+
+      if (isAdminUser) {
+        // Only allow redirection to admin routes
+        if (from && from.startsWith('/admin')) {
+          navigate(from, { replace: true });
+        } else {
+          navigate('/admin/dashboard', { replace: true });
+        }
       } else {
-        navigate('/dashboard', { replace: true });
+        // Citizen user - ONLY allow citizen dashboard or citizen routes
+        if (from && !from.startsWith('/admin') && from !== '/admin/dashboard') {
+          navigate(from, { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
       }
     } catch (err) {
       if (err.code === 'PENDING_VERIFICATION' || err.data?.code === 'PENDING_VERIFICATION') {
         setPendingVerifData(err.data);
+      }
+      if (err.code === 'ROLE_MISMATCH_ADMIN' || err.data?.code === 'ROLE_MISMATCH_ADMIN') {
+        setRoleMismatchData({ target_tab: 'admin', message: err.message });
+      } else if (err.code === 'ROLE_MISMATCH_CITIZEN' || err.data?.code === 'ROLE_MISMATCH_CITIZEN') {
+        setRoleMismatchData({ target_tab: 'citizen', message: err.message });
       }
       setError(err.message || 'Invalid email or password.');
     } finally {
@@ -454,7 +477,26 @@ export default function LoginPage() {
             <div className="login-alert error" role="alert">
               <AlertCircle />
               <div style={{ flex: 1 }}>
-                <span>{error}</span>
+                <span className="font-semibold">{error}</span>
+                {roleMismatchData && (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      type="button"
+                      className="btn-primary-gradient text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold cursor-pointer"
+                      onClick={() => {
+                        const target = roleMismatchData.target_tab || (role === 'admin' ? 'citizen' : 'admin');
+                        setRole(target);
+                        setError(null);
+                        setRoleMismatchData(null);
+                      }}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>
+                        Switch to {roleMismatchData.target_tab === 'admin' ? 'Admin Login' : 'Citizen Login'} &rarr;
+                      </span>
+                    </button>
+                  </div>
+                )}
                 {pendingVerifData && (
                   <div style={{ marginTop: 8 }}>
                     <button

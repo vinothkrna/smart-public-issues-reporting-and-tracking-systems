@@ -65,18 +65,31 @@ function MainAppContent() {
         setIssues(liveIssues);
       }
     } catch {
-      if (!silent) console.log('Using local client state for civic issues.');
+      if (!silent) console.log('Backend sync offline, waiting for server.');
     }
-  }, []);
 
-  // Initial fetch
+    try {
+      const token = localStorage.getItem('civic_token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const notifUrl = currentUser?.id 
+        ? `${API_BASE}/api/notifications?user_id=${currentUser.id}` 
+        : `${API_BASE}/api/notifications`;
+      const notifRes = await fetch(notifUrl, { headers });
+      if (notifRes.ok) {
+        const notifData = await notifRes.json();
+        setNotifications(notifData.notifications || []);
+      }
+    } catch {}
+  }, [currentUser]);
+
+  // Initial fetch and on user change
   useEffect(() => {
     fetchLiveBackendData();
   }, [fetchLiveBackendData]);
 
-  // Auto-refresh every 60s
+  // Auto-refresh every 30s
   useEffect(() => {
-    const interval = setInterval(() => fetchLiveBackendData(true), 60_000);
+    const interval = setInterval(() => fetchLiveBackendData(true), 30_000);
     return () => clearInterval(interval);
   }, [fetchLiveBackendData]);
 

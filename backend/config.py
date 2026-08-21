@@ -15,3 +15,9 @@ class Config:
     # AI Engine settings
     AI_CONFIDENCE_THRESHOLD = 0.65
     DUPLICATE_DISTANCE_THRESHOLD_METERS = 150.0
+
+class TestConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    WTF_CSRF_ENABLED = False
+    SECRET_KEY = 'test-secret-key-platform'

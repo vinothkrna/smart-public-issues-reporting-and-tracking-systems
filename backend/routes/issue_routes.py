@@ -11,9 +11,9 @@ from models.notification import Notification
 from models.complaint_update import ComplaintUpdate
 from models.complaint_message import ComplaintMessage
 from models.status_history import StatusHistory
-from services.ai_service import AIService
+from services.ai_service import AIService, CATEGORY_DEFAULT_DEPARTMENTS
 from services.notification_service import NotificationService
-from services.jwt_service import JWTService
+from services.jwt_service import JWTService, jwt_required, role_required
 
 issue_bp = Blueprint('issue', __name__)
 
@@ -338,7 +338,8 @@ def api_issues():
                 image_rel_path = f"uploads/{unique_filename}"
 
         ai_category, ai_conf, ai_dept, _ = AIService.classify_issue(title, description, full_image_path)
-        final_category = category or ai_category
+        final_category = category if (category and category != 'Auto-Detect') else ai_category
+        assigned_dept = CATEGORY_DEFAULT_DEPARTMENTS.get(final_category, ai_dept)
         priority = AIService.predict_priority(title, description, final_category)
 
         # Check Duplicate
@@ -380,9 +381,9 @@ def api_issues():
             image_path=image_rel_path,
             ai_category=ai_category,
             ai_detected_category=ai_category,
-            department=ai_dept,
+            department=assigned_dept,
             recommended_department=ai_dept,
-            assigned_department=ai_dept,
+            assigned_department=assigned_dept,
             priority=priority,
             priority_level=priority_level,
             priority_score=ai_score,
@@ -591,6 +592,21 @@ def api_issue_messages(issue_id):
             sender_id = current_user.id
             sender_type = 'Admin' if current_user.is_administrator else 'User'
         else:
+            auth_header = request.headers.get('Authorization', '')
+            jwt_uid = None
+            jwt_role = None
+            if auth_header:
+                t = auth_header[7:].strip() if auth_header.startswith('Bearer ') else auth_header.strip()
+                payload, _ = JWTService.decode_token(t)
+                if payload:
+                    jwt_uid = payload.get('sub')
+                    jwt_role = payload.get('role')
+
+            if jwt_uid and not sender_id:
+                sender_id = jwt_uid
+                if not sender_type:
+                    sender_type = 'Admin' if jwt_role in ['admin', 'superadmin', 'officer'] else 'User'
+
             if not sender_type:
                 sender_type = 'User'
             if not sender_id:
@@ -659,7 +675,16 @@ def api_issue_updates(issue_id):
     if request.method == 'POST':
         data = request.get_json(silent=True) or request.form
         message_text = data.get('message', '').strip()
-        admin_id = current_user.id if current_user.is_authenticated else data.get('admin_id', 1)
+        admin_id = current_user.id if current_user.is_authenticated else None
+        if not admin_id:
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header:
+                t = auth_header[7:].strip() if auth_header.startswith('Bearer ') else auth_header.strip()
+                payload, _ = JWTService.decode_token(t)
+                if payload:
+                    admin_id = payload.get('sub')
+        if not admin_id:
+            admin_id = data.get('admin_id', 1)
 
         if not message_text:
             return jsonify({'error': 'Update message cannot be empty'}), 400
@@ -984,11 +1009,25 @@ def api_submit_feedback(issue_id):
 
 # ── Notification Endpoints ───────────────────────────────────────────────────
 
-@issue_bp.route('/api/notifications')
-@login_required
+@issue_bp.route('/api/notifications', methods=['GET'])
+@jwt_required(optional=True)
 def api_notifications():
-    notifications = NotificationService.get_user_notifications(current_user.id)
-    unread_count = NotificationService.get_unread_count(current_user.id)
+    user_id = None
+    if current_user and current_user.is_authenticated:
+        user_id = current_user.id
+    elif getattr(request, 'jwt_user', None):
+        user_id = request.jwt_user.get('sub')
+    
+    if not user_id:
+        user_id = request.args.get('user_id', type=int)
+
+    if user_id:
+        notifications = NotificationService.get_user_notifications(user_id)
+        unread_count = NotificationService.get_unread_count(user_id)
+    else:
+        notifications = []
+        unread_count = 0
+
     return jsonify({
         'unread_count': unread_count,
         'notifications': [n.to_dict() for n in notifications]
@@ -996,7 +1035,19 @@ def api_notifications():
 
 
 @issue_bp.route('/api/notifications/read-all', methods=['POST'])
-@login_required
+@jwt_required(optional=True)
 def api_read_notifications():
-    NotificationService.mark_all_as_read(current_user.id)
+    user_id = None
+    if current_user and current_user.is_authenticated:
+        user_id = current_user.id
+    elif getattr(request, 'jwt_user', None):
+        user_id = request.jwt_user.get('sub')
+    
+    if not user_id:
+        data = request.get_json(silent=True) or {}
+        user_id = data.get('user_id') or request.args.get('user_id', type=int)
+
+    if user_id:
+        NotificationService.mark_all_as_read(user_id)
+
     return jsonify({'message': 'All notifications marked as read'})

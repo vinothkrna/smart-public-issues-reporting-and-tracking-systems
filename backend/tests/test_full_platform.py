@@ -9,15 +9,27 @@ from models.email_verification import EmailVerification
 from models.notification import Notification
 from services.jwt_service import JWTService
 
+from config import Config
+from seed_data import seed_database
+
+class TestConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    WTF_CSRF_ENABLED = False
+    SECRET_KEY = 'test-secret-key-platform'
+
 class PlatformComprehensiveTestCase(unittest.TestCase):
     def setUp(self):
-        self.app = create_app()
-        self.app.config['TESTING'] = True
+        self.app = create_app(TestConfig)
         self.client = self.app.test_client()
         self.ctx = self.app.app_context()
         self.ctx.push()
+        db.create_all()
+        seed_database()
 
     def tearDown(self):
+        db.session.remove()
+        db.drop_all()
         self.ctx.pop()
 
     def test_01_citizen_registration_flow(self):
@@ -63,11 +75,12 @@ class PlatformComprehensiveTestCase(unittest.TestCase):
         self.assertTrue(user.is_verified)
 
     def test_02_login_and_jwt_authentication(self):
-        """Test Citizen and Department Admin login with JWT claims."""
-        # 1. Citizen Login
+        """Test Citizen and Department Admin login with explicit role verification and JWT claims."""
+        # 1. Citizen Login with expected_role='citizen'
         c_res = self.client.post('/api/auth/login', json={
             'email': 'vinoth@gmail.com',
-            'password': '123456'
+            'password': '123456',
+            'role': 'citizen'
         })
         self.assertEqual(c_res.status_code, 200)
         c_data = c_res.get_json()
@@ -80,23 +93,56 @@ class PlatformComprehensiveTestCase(unittest.TestCase):
         self.assertEqual(payload['email'], 'vinoth@gmail.com')
         self.assertEqual(payload['role'], 'citizen')
 
-        # 2. Department Admin Login (Roads Department)
+        # 2. Block Citizen from logging in under Admin tab
+        c_as_admin_res = self.client.post('/api/auth/login', json={
+            'email': 'vinoth@gmail.com',
+            'password': '123456',
+            'role': 'admin',
+            'department': 'Roads & Highways Department'
+        })
+        self.assertEqual(c_as_admin_res.status_code, 403)
+        c_as_admin_data = c_as_admin_res.get_json()
+        self.assertEqual(c_as_admin_data.get('code'), 'ROLE_MISMATCH_CITIZEN')
+
+        # 3. Block Admin from logging in under Citizen tab
+        admin_as_citizen_res = self.client.post('/api/auth/login', json={
+            'email': 'roads.admin@smartcity.gov',
+            'password': 'admin123',
+            'role': 'citizen'
+        })
+        self.assertEqual(admin_as_citizen_res.status_code, 403)
+        admin_as_citizen_data = admin_as_citizen_res.get_json()
+        self.assertEqual(admin_as_citizen_data.get('code'), 'ROLE_MISMATCH_ADMIN')
+
+        # 4. Department Admin Login (Roads Department)
         a_res = self.client.post('/api/auth/login', json={
             'email': 'roads.admin@smartcity.gov',
             'password': 'admin123',
+            'role': 'admin',
             'department': 'Roads & Highways Department'
         })
         self.assertEqual(a_res.status_code, 200)
         a_data = a_res.get_json()
         self.assertEqual(a_data['user']['department'], 'Roads & Highways Department')
 
-        # 3. Department Admin Login with mismatched department
+        # 5. Department Admin Login with mismatched department
         bad_res = self.client.post('/api/auth/login', json={
             'email': 'roads.admin@smartcity.gov',
             'password': 'admin123',
+            'role': 'admin',
             'department': 'Sanitation Department'
         })
         self.assertEqual(bad_res.status_code, 403)
+        bad_data = bad_res.get_json()
+        self.assertEqual(bad_data.get('code'), 'DEPT_MISMATCH')
+
+        # 6. Admin Login without department
+        no_dept_res = self.client.post('/api/auth/login', json={
+            'email': 'roads.admin@smartcity.gov',
+            'password': 'admin123',
+            'role': 'admin'
+        })
+        self.assertEqual(no_dept_res.status_code, 400)
 
     def test_03_issue_filing_and_duplicate_detection(self):
         """Test filing a complaint and 150m duplicate detection."""
@@ -133,8 +179,17 @@ class PlatformComprehensiveTestCase(unittest.TestCase):
 
     def test_04_status_update_and_two_way_chat(self):
         """Test status transitions, official updates, and 2-way messaging dialogue."""
-        issue = Issue.query.first()
-        self.assertIsNotNone(issue)
+        issue = Issue(
+            user_id=2,
+            title='Perundurai Road Pothole Hazard',
+            description='Deep pothole near school gate',
+            category='Pothole',
+            department='Roads & Highways Department',
+            location='Ward 10 Main Road',
+            status='Submitted'
+        )
+        db.session.add(issue)
+        db.session.commit()
 
         # 1. Update Status to In Progress
         u_res = self.client.put(f'/api/issues/{issue.issue_id}', json={

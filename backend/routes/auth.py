@@ -314,12 +314,13 @@ def api_auth_resend_verification():
 @auth_bp.route('/api/auth/login', methods=['POST'])
 def api_auth_login():
     """
-    Login endpoint supporting Citizen Login and Department Admin Login with RBAC.
+    Login endpoint supporting Citizen Login and Department Admin Login with explicit role verification.
     """
     data = request.get_json(silent=True) or request.form or {}
     email = str(data.get('email', '')).strip().lower()
     password = str(data.get('password', ''))
     department = str(data.get('department', '')).strip()
+    expected_role = str(data.get('role', data.get('expected_role', ''))).strip().lower()
 
     if not email or not password:
         return jsonify({'error': 'Email address and password are required.'}), 400
@@ -359,17 +360,40 @@ def api_auth_login():
             'email': user.email
         }), 403
 
+    user_is_admin = user.role in ('admin', 'superadmin', 'officer')
+
+    # ── Strict Role Verification Before Allowing Login ──
+    if expected_role == 'citizen':
+        if user_is_admin:
+            return jsonify({
+                'error': 'This account is registered as a Municipal Administrator / Officer. Please switch to the "Admin Login" tab to access your Admin Command Center.',
+                'code': 'ROLE_MISMATCH_ADMIN',
+                'account_role': user.role,
+                'target_tab': 'admin'
+            }), 403
+    elif expected_role == 'admin':
+        if not user_is_admin:
+            return jsonify({
+                'error': 'Access Denied: This account is registered as a Citizen and does not have administrative privileges. Please switch to the "Citizen Login" tab to access your Citizen Dashboard.',
+                'code': 'ROLE_MISMATCH_CITIZEN',
+                'account_role': user.role,
+                'target_tab': 'citizen'
+            }), 403
+        if not department:
+            return jsonify({'error': 'Please select your municipal department before signing in as Administrator.'}), 400
+
     # ── Department validation for Admin login ──
-    if user.role in ('admin', 'superadmin', 'officer'):
+    if user_is_admin:
         if department:
             user_dept = (user.department or '').strip().lower()
             req_dept = department.strip().lower()
             # Super Admin & Municipal Commissioner can log into any department view
-            if user_dept not in ('super admin', 'municipal administration', 'municipal commissioner'):
+            if user_dept not in ('super admin', 'municipal administration', 'municipal commissioner') and user.role != 'superadmin':
                 dept_short = user_dept.split(' ')[0]
                 if dept_short not in req_dept and req_dept not in user_dept:
                     return jsonify({
-                        'error': f'Department authorization failed. Your account is assigned to "{user.department}", not "{department}".'
+                        'error': f'Department authorization failed. Your administrative account is assigned to "{user.department}", not "{department}".',
+                        'code': 'DEPT_MISMATCH'
                     }), 403
 
     # Clear rate limit upon success
@@ -392,7 +416,7 @@ def api_auth_login():
             entity_type='User',
             entity_id=user.id,
             ip_address=request.remote_addr,
-            details=f"Successful login for {user.name} ({user.role})"
+            details=f"Successful login for {user.name} ({user.role}) via {expected_role or 'standard'} portal"
         )
         db.session.add(log)
         db.session.commit()
