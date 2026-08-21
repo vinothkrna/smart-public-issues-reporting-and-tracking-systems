@@ -215,5 +215,64 @@ class PlatformComprehensiveTestCase(unittest.TestCase):
         messages = list_res.get_json()
         self.assertTrue(len(messages) > 0)
 
+    def test_05_google_auth_citizen_and_admin(self):
+        """Test Continue with Google authentication for Citizens and Admins."""
+        # 1. Citizen Google Sign In (existing user)
+        res1 = self.client.post('/api/auth/google', json={
+            'email': 'vinoth@gmail.com',
+            'name': 'Vinoth Krishna',
+            'role': 'citizen',
+            'expected_role': 'citizen'
+        })
+        self.assertEqual(res1.status_code, 200)
+        data1 = res1.get_json()
+        self.assertEqual(data1['user']['email'], 'vinoth@gmail.com')
+        self.assertEqual(data1['user']['role'], 'citizen')
+        self.assertIsNotNone(data1.get('token'))
+
+        # 2. Admin Google Sign In (existing admin)
+        res2 = self.client.post('/api/auth/google', json={
+            'email': 'admin@smartcity.gov',
+            'name': 'City Admin Officer',
+            'role': 'admin',
+            'expected_role': 'admin',
+            'department': 'Super Admin'
+        })
+        self.assertEqual(res2.status_code, 200)
+        data2 = res2.get_json()
+        self.assertIn(data2['user']['role'], ['admin', 'superadmin', 'officer'])
+
+        # 3. Role Mismatch protection: Admin attempting Google login under Citizen tab
+        res3 = self.client.post('/api/auth/google', json={
+            'email': 'admin@smartcity.gov',
+            'role': 'citizen',
+            'expected_role': 'citizen'
+        })
+        self.assertEqual(res3.status_code, 403)
+        self.assertEqual(res3.get_json().get('code'), 'ROLE_MISMATCH_ADMIN')
+
+        # 4. Role Mismatch protection: Citizen attempting Google login under Admin tab
+        res4 = self.client.post('/api/auth/google', json={
+            'email': 'vinoth@gmail.com',
+            'role': 'admin',
+            'expected_role': 'admin',
+            'department': 'Roads & Highways Department'
+        })
+        self.assertEqual(res4.status_code, 403)
+        self.assertEqual(res4.get_json().get('code'), 'ROLE_MISMATCH_CITIZEN')
+
+        # 5. New Citizen Auto-provisioning via Google
+        new_email = f"new_google_{uuid.uuid4().hex[:6]}@gmail.com"
+        res5 = self.client.post('/api/auth/google', json={
+            'email': new_email,
+            'name': 'Google Citizen',
+            'role': 'citizen',
+            'expected_role': 'citizen'
+        })
+        self.assertEqual(res5.status_code, 200)
+        data5 = res5.get_json()
+        self.assertEqual(data5['user']['email'], new_email)
+        self.assertEqual(data5['user']['role'], 'citizen')
+
 if __name__ == '__main__':
     unittest.main()

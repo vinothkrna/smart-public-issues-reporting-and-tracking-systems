@@ -5,7 +5,7 @@ import {
   Shield, Mail, Lock, LogIn, AlertCircle, UserCheck, Building2,
   Eye, EyeOff, ChevronDown, Sun, Moon, Sparkles, MapPin, BarChart3,
   Bell, Cpu, FileText, Search, Zap, Droplets, Trash2, Waves,
-  HeartPulse, Landmark, ShieldCheck, Construction, ArrowRight
+  HeartPulse, Landmark, ShieldCheck, Construction, ArrowRight, X
 } from 'lucide-react';
 import './LoginPage.css';
 
@@ -200,11 +200,34 @@ function SmartCityIllustration() {
   );
 }
 
+function GoogleIcon({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="20" height="20">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+      />
+    </svg>
+  );
+}
+
 /* ── Main Component ──────────────────────────────────────────────────── */
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   // Form state
   const [role, setRole] = useState('citizen');
@@ -234,6 +257,69 @@ export default function LoginPage() {
 
   const [roleMismatchData, setRoleMismatchData] = useState(null);
   const [pendingVerifData, setPendingVerifData] = useState(null);
+
+  // Google Auth State
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
+  const [googleCustomEmail, setGoogleCustomEmail] = useState('');
+  const [googleCustomName, setGoogleCustomName] = useState('');
+  const [isCustomGoogleMode, setIsCustomGoogleMode] = useState(false);
+
+  const recognizedGoogleAccounts = role === 'admin' ? [
+    { name: 'City Admin Officer', email: 'admin@smartcity.gov', department: 'Super Admin', badge: 'Super Admin' },
+    { name: 'Roads & Highways Officer', email: 'roads.admin@smartcity.gov', department: 'Roads & Highways Department', badge: 'Roads' },
+    { name: 'Kanmani Raja V', email: 'kanmani.govt@gmail.com', department: 'Water Supply Department', badge: 'Water Supply' },
+    { name: 'Sanitation Officer', email: 'sanitation.admin@smartcity.gov', department: 'Sanitation Department', badge: 'Sanitation' },
+    { name: 'Electricity Officer', email: 'electricity.admin@smartcity.gov', department: 'Electricity Department', badge: 'Electricity' },
+    { name: 'Drainage & Sewer Officer', email: 'drainage.admin@smartcity.gov', department: 'Drainage & Sewer Department', badge: 'Drainage' }
+  ] : [
+    { name: 'Vinoth Krishna', email: 'vinoth@gmail.com', badge: 'Citizen' },
+    { name: 'Kanmani Raja', email: 'kanmaniraja1721@gmail.com', badge: 'Citizen' },
+    { name: 'Rajesh Kumar', email: 'rajesh@gmail.com', badge: 'Citizen' }
+  ];
+
+  const handleGoogleSignIn = async (account) => {
+    if (role === 'admin' && !department && !account.department) {
+      setError('Please select your municipal department before signing in with Google Workspace.');
+      return;
+    }
+
+    setError(null);
+    setPendingVerifData(null);
+    setRoleMismatchData(null);
+    setIsSubmitting(true);
+    setIsGoogleModalOpen(false);
+
+    try {
+      const targetDept = department || account.department || '';
+      const user = await loginWithGoogle(account, role, targetDept);
+
+      const isAdminUser = ['admin', 'superadmin', 'officer'].includes(user.role);
+      const from = location.state?.from?.pathname;
+
+      if (isAdminUser) {
+        if (from && from.startsWith('/admin')) {
+          navigate(from, { replace: true });
+        } else {
+          navigate('/admin/dashboard', { replace: true });
+        }
+      } else {
+        if (from && !from.startsWith('/admin') && from !== '/admin/dashboard') {
+          navigate(from, { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      }
+    } catch (err) {
+      if (err.code === 'ROLE_MISMATCH_ADMIN' || err.data?.code === 'ROLE_MISMATCH_ADMIN') {
+        setRoleMismatchData({ target_tab: 'admin', message: err.message });
+      } else if (err.code === 'ROLE_MISMATCH_CITIZEN' || err.data?.code === 'ROLE_MISMATCH_CITIZEN') {
+        setRoleMismatchData({ target_tab: 'citizen', message: err.message });
+      }
+      setError(err.message || 'Google Sign-In failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const selectedDept = DEPARTMENTS.find(d => d.name === department);
 
@@ -627,6 +713,30 @@ export default function LoginPage() {
                 </>
               )}
             </button>
+
+            {/* Google Sign In Divider */}
+            <div className="login-google-divider">
+              <div className="login-google-divider-line" />
+              <span className="login-google-divider-text">Or continue with</span>
+              <div className="login-google-divider-line" />
+            </div>
+
+            {/* Google Sign In Button */}
+            <button
+              type="button"
+              className={`login-google-btn ${role === 'admin' ? 'admin' : ''}`}
+              onClick={() => {
+                setError(null);
+                setRoleMismatchData(null);
+                setIsGoogleModalOpen(true);
+              }}
+              disabled={isSubmitting}
+            >
+              <GoogleIcon />
+              <span>
+                {role === 'admin' ? 'Continue with Google Workspace' : 'Continue with Google'}
+              </span>
+            </button>
           </form>
 
           {/* Divider */}
@@ -709,6 +819,121 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Google Account Selector Modal */}
+      {isGoogleModalOpen && (
+        <div className="google-modal-backdrop" onClick={() => setIsGoogleModalOpen(false)}>
+          <div className="google-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="google-modal-header">
+              <button
+                type="button"
+                className="google-modal-close"
+                onClick={() => setIsGoogleModalOpen(false)}
+                aria-label="Close"
+              >
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                <GoogleIcon className="w-8 h-8" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900 m-0" style={{ color: 'var(--login-text)' }}>
+                {role === 'admin' ? 'Sign in with Google Workspace' : 'Choose a Google Account'}
+              </h3>
+              <p className="text-xs text-slate-500 m-0 mt-1" style={{ color: 'var(--login-text-muted)' }}>
+                to continue to <strong>CivicTrack ({role === 'admin' ? 'Department Portal' : 'Citizen Portal'})</strong>
+              </p>
+            </div>
+
+            {/* Account List */}
+            <div className="google-account-list">
+              {recognizedGoogleAccounts.map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  className="google-account-item"
+                  onClick={() => handleGoogleSignIn(acc)}
+                >
+                  <div className={`google-avatar ${role === 'admin' ? 'admin' : ''}`}>
+                    {acc.name.charAt(0)}
+                  </div>
+                  <div className="google-account-info">
+                    <div className="google-account-name">{acc.name}</div>
+                    <div className="google-account-email">{acc.email}</div>
+                  </div>
+                  <span className="google-account-badge">{acc.badge || role}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Google Account Entry */}
+            <div className="google-custom-account-box">
+              {!isCustomGoogleMode ? (
+                <button
+                  type="button"
+                  className="w-full py-2.5 px-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-xs font-bold text-indigo-500 dark:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={() => setIsCustomGoogleMode(true)}
+                >
+                  <span>Use another Google account</span>
+                  <ArrowRight style={{ width: 14, height: 14 }} />
+                </button>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!googleCustomEmail.trim()) return;
+                    handleGoogleSignIn({
+                      name: googleCustomName.trim(),
+                      email: googleCustomEmail.trim()
+                    });
+                  }}
+                  className="space-y-3"
+                >
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Google Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. yourname@gmail.com"
+                      value={googleCustomEmail}
+                      onChange={(e) => setGoogleCustomEmail(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Full Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Alex Johnson"
+                      value={googleCustomName}
+                      onChange={(e) => setGoogleCustomName(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomGoogleMode(false)}
+                      className="w-1/3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-2/3 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow cursor-pointer"
+                    >
+                      Sign In with Google
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading Overlay */}
       {isSubmitting && (

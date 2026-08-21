@@ -430,6 +430,128 @@ def api_auth_login():
     }), 200
 
 
+@auth_bp.route('/api/auth/google', methods=['POST'])
+def api_auth_google():
+    """
+    Continue with Google authentication for Citizens and Administrators.
+    Performs role verification and provisions accounts seamlessly.
+    """
+    data = request.get_json(silent=True) or request.form or {}
+    email = str(data.get('email', '')).strip().lower()
+    name = str(data.get('name', '')).strip()
+    avatar_url = str(data.get('avatar_url', '')).strip() or None
+    department = str(data.get('department', '')).strip()
+    expected_role = str(data.get('role', data.get('expected_role', 'citizen'))).strip().lower()
+
+    if not email:
+        return jsonify({'error': 'Google account email is required.'}), 400
+
+    if not name:
+        name = email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
+
+    user = User.query.filter_by(email=email).first()
+
+    if user:
+        # Existing user check
+        if user.status == 'blocked':
+            return jsonify({'error': 'This Google account has been suspended by administration. Contact municipal support.'}), 403
+
+        user_is_admin = user.role in ('admin', 'superadmin', 'officer')
+
+        # Strict Role Verification
+        if expected_role == 'citizen':
+            if user_is_admin:
+                return jsonify({
+                    'error': 'This Google account is registered as a Municipal Administrator / Officer. Please switch to the "Admin Login" tab to access your Admin Command Center.',
+                    'code': 'ROLE_MISMATCH_ADMIN',
+                    'account_role': user.role,
+                    'target_tab': 'admin'
+                }), 403
+        elif expected_role == 'admin':
+            if not user_is_admin:
+                return jsonify({
+                    'error': 'Access Denied: This Google account is registered as a Citizen and lacks administrator privileges. Please switch to the "Citizen Login" tab to access your Citizen Dashboard.',
+                    'code': 'ROLE_MISMATCH_CITIZEN',
+                    'account_role': user.role,
+                    'target_tab': 'citizen'
+                }), 403
+            if not department and not user.department:
+                return jsonify({'error': 'Please select your municipal department before signing in as Administrator.'}), 400
+
+            # Department validation if specific department selected
+            if department and user.department:
+                user_dept = user.department.strip().lower()
+                req_dept = department.strip().lower()
+                if user_dept not in ('super admin', 'municipal administration', 'municipal commissioner') and user.role != 'superadmin':
+                    dept_short = user_dept.split(' ')[0]
+                    if dept_short not in req_dept and req_dept not in user_dept:
+                        return jsonify({
+                            'error': f'Department authorization failed. Your administrative account is assigned to "{user.department}", not "{department}".',
+                            'code': 'DEPT_MISMATCH'
+                        }), 403
+
+        # Update profile if needed
+        if avatar_url and not user.avatar_url:
+            user.avatar_url = avatar_url
+        user.is_verified = True
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+    else:
+        # New user registration via Google
+        if expected_role == 'admin':
+            if not department:
+                return jsonify({'error': 'Please select your municipal department to register as an Administrator via Google.'}), 400
+            user = User(
+                name=name,
+                email=email,
+                role='admin',
+                department=department,
+                is_verified=True,
+                status='active',
+                avatar_url=avatar_url
+            )
+        else:
+            user = User(
+                name=name,
+                email=email,
+                role='citizen',
+                department=None,
+                is_verified=True,
+                status='active',
+                avatar_url=avatar_url
+            )
+
+        # Set a secure randomized internal password
+        user.set_password(uuid.uuid4().hex)
+        db.session.add(user)
+        db.session.commit()
+
+    # Log in session and generate JWT token
+    login_user(user)
+    jwt_token = JWTService.generate_token(user)
+
+    # Audit Log
+    try:
+        log = AuditLog(
+            user_id=user.id,
+            action='GOOGLE_LOGIN_SUCCESS',
+            entity_type='User',
+            entity_id=user.id,
+            ip_address=request.remote_addr,
+            details=f"Google OAuth sign in for {user.name} ({user.email}) as {user.role}"
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception:
+        pass
+
+    return jsonify({
+        'message': f'Welcome to CivicTrack, {user.name}!',
+        'token': jwt_token,
+        'user': user.to_dict()
+    }), 200
+
+
 @auth_bp.route('/api/auth/forgot-password', methods=['POST'])
 def api_forgot_password():
     """Initiates 3-step password recovery by sending 6-digit OTP."""

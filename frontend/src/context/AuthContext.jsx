@@ -151,6 +151,54 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Google Sign-In: Citizen & Admin with role verification
+  const loginWithGoogle = async ({ email, name, avatar_url, google_id }, expectedRole = 'citizen', department = '') => {
+    setIsLoading(true);
+    try {
+      const body = {
+        email: email.trim(),
+        name: name ? name.trim() : '',
+        avatar_url: avatar_url || '',
+        google_id: google_id || '',
+        role: expectedRole,
+        expected_role: expectedRole
+      };
+      if (department) body.department = department.trim();
+
+      const { res, data } = await safeAuthFetch(`${API_BASE}/api/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const error = new Error(data.error || 'Google Sign-In failed');
+        error.code = data.code;
+        error.data = data;
+        throw error;
+      }
+
+      const user = data.user;
+      const isAdminUser = ['admin', 'superadmin', 'officer'].includes(user.role);
+      if (expectedRole === 'citizen' && isAdminUser) {
+        const err = new Error('This Google account belongs to an Administrator. Please use the Admin Login tab.');
+        err.code = 'ROLE_MISMATCH_ADMIN';
+        throw err;
+      }
+      if (expectedRole === 'admin' && !isAdminUser) {
+        const err = new Error('Access Denied: This Google account is a Citizen account and lacks admin access.');
+        err.code = 'ROLE_MISMATCH_CITIZEN';
+        throw err;
+      }
+
+      setCurrentUser(user);
+      setToken(data.token);
+      return user;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Citizen & Department Admin Registration
   const register = async (name, email, phone, password, confirmPassword, role = 'citizen', department = '') => {
     setIsLoading(true);
@@ -280,6 +328,7 @@ export function AuthProvider({ children }) {
         isSuperAdmin,
         currentDepartment,
         login,
+        loginWithGoogle,
         register,
         verifyEmail,
         resendVerification,
