@@ -22,7 +22,7 @@ import {
 import confetti from 'canvas-confetti';
 import LeafletMap from './LeafletMap';
 
-const API_BASE = 'http://127.0.0.1:5000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:5000';
 
 export default function ReportIssueModal({ isOpen, onClose, onIssueCreated, currentUser }) {
   if (!isOpen) return null;

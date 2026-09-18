@@ -25,7 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const API_BASE = 'http://127.0.0.1:5000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:5000';
 
 const TIMELINE_STAGES = [
   { key: 'Submitted', label: 'Submitted', description: 'Complaint lodged by citizen & logged into registry' },

@@ -42,7 +42,7 @@ import AIPriorityPanel from '../components/AIPriorityPanel';
 import LeafletMap from '../components/LeafletMap';
 import { DEPARTMENTS } from '../utils/demoData';
 
-const API_BASE = 'http://127.0.0.1:5000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:5000';
 
 // Department-specific configurations, squads, and operational tools
 export const DEPARTMENT_CONFIGS = {

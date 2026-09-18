@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import GoogleMapPicker from './GoogleMapPicker';
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:5000';
+
 export default function TrackTimelineModal({ issue, isOpen, onClose, onUpvote, onOpenFullDetails }) {
   if (!isOpen || !issue) return null;
 
@@ -171,7 +173,7 @@ export default function TrackTimelineModal({ issue, isOpen, onClose, onUpvote, o
                   <div className="photo-label">Initial Citizen Report</div>
                   <div className="photo-container">
                     {issue.image_path ? (
-                      <img src={`http://127.0.0.1:5000/static/${issue.image_path}`} alt="Initial proof" />
+                      <img src={issue.image_path.startsWith('http') ? issue.image_path : `${API_BASE}/static/${issue.image_path}`} alt="Initial proof" />
                     ) : (
                       <div className="placeholder-photo">
                         <Camera className="w-6 h-6 text-slate-300 mb-1" />
@@ -185,7 +187,7 @@ export default function TrackTimelineModal({ issue, isOpen, onClose, onUpvote, o
                   <div className="photo-box success-border">
                     <div className="photo-label success">Resolution Proof</div>
                     <div className="photo-container">
-                      <img src={`http://127.0.0.1:5000/static/${issue.resolution_image}`} alt="Resolution proof" />
+                      <img src={issue.resolution_image.startsWith('http') ? issue.resolution_image : `${API_BASE}/static/${issue.resolution_image}`} alt="Resolution proof" />
                     </div>
                   </div>
                 )}
