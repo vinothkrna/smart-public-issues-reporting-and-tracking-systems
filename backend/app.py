@@ -45,6 +45,15 @@ def create_app(config_class=Config):
     app.register_blueprint(issue_bp)
     app.register_blueprint(admin_bp)
 
+    @app.route('/api/health')
+    def health_check():
+        return jsonify({
+            'status': 'healthy',
+            'service': 'civiccare-backend',
+            'database': 'connected',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+
     # Global Error Handlers
     @app.errorhandler(404)
     def not_found_error(error):
